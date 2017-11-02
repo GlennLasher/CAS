@@ -94,13 +94,7 @@ class CAS:
         blocksize = 1048576
         
         #Calculate the hash
-        digest = hashlib.sha256()
-        with open(filepath, "r") as fh:
-            block = fh.read(blocksize)
-            while (len(block) > 0):
-                digest.update(block)
-                block = fh.read(blocksize)
-        key = digest.hexdigest()
+        key = self.hashfile(filepath)
         
         objpath = os.path.join(self.storepath, key[:2], key)
         shutil.copyfile(filepath, objpath)
@@ -111,13 +105,33 @@ class CAS:
         #Takes a hash and a filepath, and, if the file is found,
         #copies the data from the store into the filepath.  Returns
         #True if the key was found; False if not.
-        pass
+        objpath = os.path.join(self.storepath, key[:2], key)
+        if ((not os.path.exists(objpath)) or (not os.path.isfile(objpath))):
+            return False
 
+        shutil.copyfile(objpath, filepath)
+        return True
+
+    def hashfile(self, filepath):
+        #Takes a filepath and returns the hash.  Returns None if it isn't there.
+        if ((not os.path.exists(filepath)) or (not os.path.isfile(filepath))):
+            return None
+        
+        digest = hashlib.sha256()
+        with open(filepath, "r") as fh:
+            block = fh.read(blocksize)
+            while (len(block) > 0):
+                digest.update(block)
+                block = fh.read(blocksize)
+        return digest.hexdigest()
+        
     def isvalidkey(self, key):
         #Takes a hash and attempts to validate that the data held
         #under that hash actually hashes out to that value.  Returns
         #True if so, False if not, or None if the key is not found in
         #the store.
+        
+        
         pass
 
     def getkeysize (self, key):
