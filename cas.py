@@ -130,13 +130,20 @@ class CAS:
         #under that hash actually hashes out to that value.  Returns
         #True if so, False if not, or None if the key is not found in
         #the store.
+        objpath = os.path.join(self.storepath, key[:2], key)
+        testkey = self.hashfile(objpath)
+        if (testkey == key):
+            return True
+        return False
         
-        
-        pass
-
     def getkeysize (self, key):
         #Takes a key and returns the size of the stored object.
-        pass
+        #Returns None if the key is absent, because this is a distinct
+        #condition from a zero-length key.
+        objpath = os.path.join(self.storepath, key[:2], key)
+        if ((not os.path.exists(objpath)) or (not os.path.isfile(objpath))):
+            return None
+        return os.path.getsize(objpath)
     
     def listkeys (self):
         #Yields all keys from the store 
