@@ -80,12 +80,12 @@ class CAS:
     def getblob(self, key):
         #Takes a key and loads the content.  Returns None if the key
         #isn't in the store.
-        objpath = os.path.join(self.storepath, key[:2], key)
-        if (os.path.exists(objpath) and os.path.isfile(objpath)):
+        if (self.exists(key)):
+            objpath = os.path.join(self.storepath, key[:2], key)
             with open(objpath, "r") as fh:
                 result = fh.read()
-
-        return result
+            return result
+        return None
 
     def putfile(self, filepath):
         #Takes a filepath, computes the hash of the file there, and,
@@ -105,10 +105,9 @@ class CAS:
         #Takes a hash and a filepath, and, if the file is found,
         #copies the data from the store into the filepath.  Returns
         #True if the key was found; False if not.
-        objpath = os.path.join(self.storepath, key[:2], key)
-        if ((not os.path.exists(objpath)) or (not os.path.isfile(objpath))):
+        if (not self.exists(key)):
             return False
-
+        objpath = os.path.join(self.storepath, key[:2], key)
         shutil.copyfile(objpath, filepath)
         return True
 
@@ -141,9 +140,34 @@ class CAS:
         #Returns None if the key is absent, because this is a distinct
         #condition from a zero-length key.
         objpath = os.path.join(self.storepath, key[:2], key)
-        if ((not os.path.exists(objpath)) or (not os.path.isfile(objpath))):
+        if (not self.exists(key)):
             return None
         return os.path.getsize(objpath)
+    
+    def removekey(self, key):
+        #Deletes the specified key from the data store.  Returns True
+        #if successful, False if not.
+        if self.exists(key):
+            objpath = os.path.join(self.storepath, key[:2], key)
+            try:
+                os.path.unlink(objpath)
+            except:
+                return False
+            return True
+        return False    
+
+    def exists(self, key):
+        #Returns True if key exists in the store, False if not.
+        objpath = os.path.join(self.storepath, key[:2], key)
+        if ((not os.path.exists(objpath)) or (not os.path.isfile(objpath))):
+            return False
+        return True
+
+    def changekey (self, oldkey, newkey):
+        #Changes the key of an object.
+        oldobjpath = os.path.join(self.storepath, oldkey[:2], oldkey)
+        newobjpath = os.path.join(self.storepath, newkey[:2], newkey)
+        shutil.move(oldobjpath, newobjpath)
     
     def listkeys (self):
         #Yields all keys from the store 
@@ -163,16 +187,3 @@ class CAS:
         #keys.
         pass
 
-    def removekey(self, key):
-        #Deletes the specified key from the data store.  Returns True
-        #if successful, False if not.
-        pass
-
-    def exists(self, key):
-        #Returns True if key exists in the store, False if not.
-        pass
-
-    def changekey (self, oldkey, newkey):
-        #Changes the key of an object.
-        pass
-    
