@@ -1,5 +1,9 @@
 #!/usr/bin/python
 
+import os
+import shutil
+import hashlib
+
 class StoreNotValidException(Exception):
     pass
 
@@ -28,34 +32,80 @@ class CAS:
         
     def isvalidstore(self):
         #needs to confirm that the folder is present and contains
-        #folders for 00-FF.
-        pass
+        #folders for 00-FF.  Return False if any of these conditions
+        #is not met, and return True if we get through all of that
+        #with no glitches.
+        if (not os.path.exists(self.storepath)):
+            return False
+        if (not os.path.isdir(self.storepath)):
+            return False
+        for i in range(0, 255):
+            subdir = format(i, "02x")
+            if (not os.path.exists(os.path.join(self.storepath, subdir))):
+                return False
+            if (not os.path.isdir(os.path.join(self.storepath, subdir))):
+                return False
+        return True
     
     def clear(self):
         #Simply does a recursive delete of self.storepath if it exists.
-        pass
+        if (os.path.exists(self.storepath)):
+            if (os.path.isdir(self.storepath)):
+                shutil.rmtree(self.storepath)
+            else:
+                os.path.unlink(self.storepath)
 
     def buildstruct (self):
         #Creates all folders leading up to and including
         #self.storepath, then creates folders for 00-FF under that.
-        pass
-    
+        for i in range(0, 255):
+            subdir = format(i, "02x")
+            os.makedirs(os.path.join(self.storepath, subdir))
+
     def putblob(self, blob):
         #Takes a blob in a variable, computes its hash, and, if there
         #is no object in the store by that hash, writes it to a file
         #in the store.  Returns the hash.
-        pass
+        digest = hashlib.sha256()
+        digest.update(blob)
+        key = digest.hexdigest()
+        objpath = os.path.join(self.storepath, key[:2], key)
+
+        if (not os.path.exists(objpath)):
+            with open(objpath, "w") as fh:
+                fh.write(blob)
+
+        return key
 
     def getblob(self, key):
         #Takes a key and loads the content.  Returns None if the key
         #isn't in the store.
-        pass
+        objpath = os.path.join(self.storepath, key[:2], key)
+        if (os.path.exists(objpath) and os.path.isfile(objpath)):
+            with open(objpath, "r") as fh:
+                result = fh.read()
+
+        return result
 
     def putfile(self, filepath):
         #Takes a filepath, computes the hash of the file there, and,
         #if there is no object in the store by that hash, writes it to
         #the store.  Returns the hash.
-        pass
+        blocksize = 1048576
+        
+        #Calculate the hash
+        digest = hashlib.sha256()
+        with open(filepath, "r") as fh:
+            block = fh.read(blocksize)
+            while (len(block) > 0):
+                digest.update(block)
+                block = fh.read(blocksize)
+        key = digest.hexdigest()
+        
+        objpath = os.path.join(self.storepath, key[:2], key)
+        shutil.copyfile(filepath, objpath)
+
+        return key
 
     def getfile(self, key, filepath):
         #Takes a hash and a filepath, and, if the file is found,
