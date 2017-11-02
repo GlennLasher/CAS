@@ -90,4 +90,18 @@ class CAS:
     def removeinvalidkeys(self):
         #Deletes any keys that are not valid.  Yields a list of delete
         #keys.
-        
+        pass
+
+    def removekey(self, key):
+        #Deletes the specified key from the data store.  Returns True
+        #if successful, False if not.
+        pass
+
+    def exists(self, key):
+        #Returns True if key exists in the store, False if not.
+        pass
+
+    def changekey (self, oldkey, newkey):
+        #Changes the key of an object.
+        pass
+    
