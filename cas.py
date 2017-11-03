@@ -1,15 +1,45 @@
 #!/usr/bin/python
 
+"""
+Content Addressed Storage using sha256 hashes
+
+This module creates a data store in the filesystem at a path you
+specify, and stores whatever values or files you want in it, using
+sha256 hashes to identify them.
+"""
+
 import os
 import shutil
 import hashlib
 import dircache
 
 class StoreNotValidException(Exception):
+    """Raised when an invalid store is encountered and not fixable"""
     pass
 
 class CAS:
+
+    """
+    Implements Content Addressed Storage.
+    """
+
     def __init__(self, storepath, create=True, force=False ):
+        """Instantiates a CAS store.
+
+        You must provide a path to the place in the filesystem where the data are to be stored.  
+
+        Optionally, you may specify create (default True) which will
+        cause __init__() to create and/or modify the specified
+        docstore path to make it usable as a store.
+
+        Optionally, you may specify force (default False), which will
+        cause __init__() to delete whatever (if anything) is at the
+        existing store path before creating the store.  Note that this
+        will delete any data in the store path, regardless of whether
+        or not it is part of a valid data store.
+
+        """
+
         self.storepath = storepath
 
         #If create is false, the store must already exist at the path.
@@ -32,10 +62,14 @@ class CAS:
             raise StoreNotValidException()
         
     def isvalidstore(self):
-        #needs to confirm that the folder is present and contains
-        #folders for 00-FF.  Return False if any of these conditions
-        #is not met, and return True if we get through all of that
-        #with no glitches.
+        """Confirms that the store path is valid.  Returns True if it is.
+
+        Tests to see that the path exists, is a folder, and contans
+        256 folders numbered in hex from 00 through ff.  Returns True
+        if all of these conditions are met, False otherwise.
+
+        """
+
         if (not os.path.exists(self.storepath)):
             return False
         if (not os.path.isdir(self.storepath)):
@@ -49,6 +83,8 @@ class CAS:
         return True
     
     def clear(self):
+        """Deletes anything found at the store path."""
+
         #Simply does a recursive delete of self.storepath if it exists.
         if (os.path.exists(self.storepath)):
             if (os.path.isdir(self.storepath)):
@@ -57,16 +93,20 @@ class CAS:
                 os.path.unlink(self.storepath)
 
     def buildstruct (self):
-        #Creates all folders leading up to and including
-        #self.storepath, then creates folders for 00-FF under that.
+        """Creates all of the structures expected in the data store."""
+
         for i in range(0, 256):
             subdir = format(i, "02x")
             os.makedirs(os.path.join(self.storepath, subdir))
 
     def putblob(self, blob):
-        #Takes a blob in a variable, computes its hash, and, if there
-        #is no object in the store by that hash, writes it to a file
-        #in the store.  Returns the hash.
+        """Places a blob in the store and returns its key.
+
+        Given a blob, this will calculate its hash and, if needed,
+        copy the object into the store.  It will return the hash.
+
+        """
+
         digest = hashlib.sha256()
         digest.update(blob)
         key = digest.hexdigest()
@@ -79,8 +119,9 @@ class CAS:
         return key
 
     def getblob(self, key):
-        #Takes a key and loads the content.  Returns None if the key
-        #isn't in the store.
+        """Takes a key and returns the content.  Returns None if the key
+        isn't in the store."""
+        
         if (self.exists(key)):
             objpath = os.path.join(self.storepath, key[:2], key)
             with open(objpath, "r") as fh:
@@ -89,12 +130,13 @@ class CAS:
         return None
 
     def putfile(self, filepath):
-        #Takes a filepath, computes the hash of the file there, and,
-        #if there is no object in the store by that hash, writes it to
-        #the store.  Returns the hash.
-        blocksize = 1048576
+        """Takes a filepath, and puts the file into the store.  Returns the hash.
+
+        If there is a matching key in the store already, the copy is not performed.
+
         
-        #Calculate the hash
+        """
+
         key = self.hashfile(filepath)
         
         objpath = os.path.join(self.storepath, key[:2], key)
@@ -103,9 +145,13 @@ class CAS:
         return key
 
     def getfile(self, key, filepath):
-        #Takes a hash and a filepath, and, if the file is found,
-        #copies the data from the store into the filepath.  Returns
-        #True if the key was found; False if not.
+        """Retrieves content to a file.
+
+        Takes a hash and a filepath.  Copies the content from the store to
+        the specified filepath.  Returns True if the key was found,
+        False if not.
+
+        """
         if (not self.exists(key)):
             return False
         objpath = os.path.join(self.storepath, key[:2], key)
@@ -113,7 +159,12 @@ class CAS:
         return True
 
     def hashfile(self, filepath):
-        #Takes a filepath and returns the hash.  Returns None if it isn't there.
+        """#Takes a filepath and returns the hash.  Returns None if it isn't there.
+
+        This is largely intended as a utility for the other methods in this class.
+
+        """
+
         blocksize = 1048576
         
         if ((not os.path.exists(filepath)) or (not os.path.isfile(filepath))):
@@ -128,10 +179,14 @@ class CAS:
         return digest.hexdigest()
         
     def isvalidkey(self, key):
-        #Takes a hash and attempts to validate that the data held
-        #under that hash actually hashes out to that value.  Returns
-        #True if so, False if not, or None if the key is not found in
-        #the store.
+        """Takes a key and confirms that the object stored under that key
+        correctly hashes to that key.
+
+        Returns True if it does, False if not, None if the key is not
+        in the store.
+
+        """
+        
         objpath = os.path.join(self.storepath, key[:2], key)
         testkey = self.hashfile(objpath)
         if (testkey == key):
@@ -139,17 +194,22 @@ class CAS:
         return False
         
     def getkeysize (self, key):
-        #Takes a key and returns the size of the stored object.
-        #Returns None if the key is absent, because this is a distinct
-        #condition from a zero-length key.
+        """Takes a key and returns the size of the stored object.
+
+        Returns None if the key is absent, because this is a distinct
+        condition from a zero-length key.
+
+        """
+        
         objpath = os.path.join(self.storepath, key[:2], key)
         if (not self.exists(key)):
             return None
         return os.path.getsize(objpath)
     
     def removekey(self, key):
-        #Deletes the specified key from the data store.  Returns True
-        #if successful, False if not.
+        """Deletes the specified key from the data store.  Returns True
+        #if successful, False if not."""
+        
         if self.exists(key):
             objpath = os.path.join(self.storepath, key[:2], key)
             os.unlink(objpath)
@@ -157,34 +217,48 @@ class CAS:
         return False    
 
     def exists(self, key):
-        #Returns True if key exists in the store, False if not.
+        """Returns True if key exists in the store, False if not."""
+        
         objpath = os.path.join(self.storepath, key[:2], key)
         if ((not os.path.exists(objpath)) or (not os.path.isfile(objpath))):
             return False
         return True
 
     def changekey (self, oldkey, newkey):
-        #Changes the key of an object.
+        """Changes the key of an object.  Don't do this."""
+        
         oldobjpath = os.path.join(self.storepath, oldkey[:2], oldkey)
         newobjpath = os.path.join(self.storepath, newkey[:2], newkey)
         shutil.move(oldobjpath, newobjpath)
     
     def listkeys (self):
-        #Yields all keys from the store 
+        """Yields all keys from the store"""
         for i in range(0, 256):
             subdir = format(i, '02x')
             for item in dircache.listdir(os.path.join(self.storepath, subdir)):
                 yield item
 
     def findinvalidkeys(self):
-        #Yields all keys that have mismatched content
+        """Yields all keys that have mismatched content
+
+        Warning: This could take a long time, depending on the size of
+        the store and the size of the individual objects in the store.
+
+        """
+        
         for key in self.listkeys():
             if (not self.isvalidkey(key)):
                 yield key
     
     def correctinvalidkeys(self):
-        #Renames any keys that are not valid.  Returns a list of
-        #tuples consisting of the old and new key values.
+        """Renames any keys that are not valid.  Returns a list of
+        tuples consisting of the old and new key values.
+
+        Warning: This could take a long time, depending on the size of
+        the store and the size of the individual objects in the store.
+
+        """
+
         result = []
         for key in self.findinvalidkeys():
             objpath = os.path.join(self.storepath, key[:2], key)
@@ -194,11 +268,18 @@ class CAS:
         return result
     
     def removeinvalidkeys(self):
-        #Deletes any keys that are not valid.
+        """Deletes any keys that are not valid.  Returns a list of
+        the deleted keys.
+
+        Warning: This could take a long time, depending on the size of
+        the store and the size of the individual objects in the store.
+
+        Warning: This deletes data!  It may be destructive.
+
+        """
+
         result = []
         for key in self.findinvalidkeys():
             self.removekey(key)
             result = result + [key]
         return result
-
-
