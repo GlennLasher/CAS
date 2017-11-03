@@ -27,9 +27,9 @@ class CAS:
         if (create and force):
             self.clear()
         if (create and not valid):
-            self.buildstruct
+            self.buildstruct()
         if (not create and not valid):
-            raise StoreNotValidException
+            raise StoreNotValidException()
         
     def isvalidstore(self):
         #needs to confirm that the folder is present and contains
@@ -40,7 +40,7 @@ class CAS:
             return False
         if (not os.path.isdir(self.storepath)):
             return False
-        for i in range(0, 255):
+        for i in range(0, 256):
             subdir = format(i, "02x")
             if (not os.path.exists(os.path.join(self.storepath, subdir))):
                 return False
@@ -59,7 +59,7 @@ class CAS:
     def buildstruct (self):
         #Creates all folders leading up to and including
         #self.storepath, then creates folders for 00-FF under that.
-        for i in range(0, 255):
+        for i in range(0, 256):
             subdir = format(i, "02x")
             os.makedirs(os.path.join(self.storepath, subdir))
 
@@ -114,6 +114,8 @@ class CAS:
 
     def hashfile(self, filepath):
         #Takes a filepath and returns the hash.  Returns None if it isn't there.
+        blocksize = 1048576
+        
         if ((not os.path.exists(filepath)) or (not os.path.isfile(filepath))):
             return None
         
@@ -150,10 +152,7 @@ class CAS:
         #if successful, False if not.
         if self.exists(key):
             objpath = os.path.join(self.storepath, key[:2], key)
-            try:
-                os.path.unlink(objpath)
-            except:
-                return False
+            os.unlink(objpath)
             return True
         return False    
 
@@ -172,7 +171,7 @@ class CAS:
     
     def listkeys (self):
         #Yields all keys from the store 
-        for i in range(0, 255):
+        for i in range(0, 256):
             subdir = format(i, '02x')
             for item in dircache.listdir(os.path.join(self.storepath, subdir)):
                 yield item
@@ -184,19 +183,22 @@ class CAS:
                 yield key
     
     def correctinvalidkeys(self):
-        #Renames any keys that are not valid.  Yields tuples
-        #consisting of the old and new key values.
+        #Renames any keys that are not valid.  Returns a list of
+        #tuples consisting of the old and new key values.
+        result = []
         for key in self.findinvalidkeys():
             objpath = os.path.join(self.storepath, key[:2], key)
             newkey = self.hashfile(objpath)
             self.changekey(key, newkey)
-            yield (key, newkey)
+            result = result + [ (key, newkey) ]
+        return result
     
     def removeinvalidkeys(self):
-        #Deletes any keys that are not valid.  Yields a list of deleted
-        #keys.
+        #Deletes any keys that are not valid.
+        result = []
         for key in self.findinvalidkeys():
             self.removekey(key)
-            yield key
+            result = result + [key]
+        return result
 
 
