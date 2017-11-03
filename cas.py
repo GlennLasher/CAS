@@ -3,6 +3,7 @@
 import os
 import shutil
 import hashlib
+import dircache
 
 class StoreNotValidException(Exception):
     pass
@@ -171,19 +172,31 @@ class CAS:
     
     def listkeys (self):
         #Yields all keys from the store 
-        pass
+        for i in range(0, 255):
+            subdir = format(i, '02x')
+            for item in dircache.listdir(os.path.join(self.storepath, subdir)):
+                yield item
 
     def findinvalidkeys(self):
         #Yields all keys that have mismatched content
-        pass
+        for key in self.listkeys():
+            if (not self.isvalidkey(key)):
+                yield key
     
     def correctinvalidkeys(self):
         #Renames any keys that are not valid.  Yields tuples
         #consisting of the old and new key values.
-        pass
+        for key in self.findinvalidkeys():
+            objpath = os.path.join(self.storepath, key[:2], key)
+            newkey = self.hashfile(objpath)
+            self.changekey(key, newkey)
+            yield (key, newkey)
     
     def removeinvalidkeys(self):
-        #Deletes any keys that are not valid.  Yields a list of delete
+        #Deletes any keys that are not valid.  Yields a list of deleted
         #keys.
-        pass
+        for key in self.findinvalidkeys():
+            self.removekey(key)
+            yield key
+
 
