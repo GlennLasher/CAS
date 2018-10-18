@@ -173,7 +173,7 @@ class CAS:
             return None
         
         digest = hashlib.sha256()
-        with open(filepath, "r") as fh:
+        with open(filepath, "rb") as fh:
             block = fh.read(blocksize)
             while (len(block) > 0):
                 digest.update(block)
