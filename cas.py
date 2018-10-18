@@ -11,7 +11,6 @@ sha256 hashes to identify them.
 import os
 import shutil
 import hashlib
-import dircache
 
 class StoreNotValidException(Exception):
     """Raised when an invalid store is encountered and not fixable"""
@@ -129,15 +128,18 @@ class CAS:
             return result
         return None
 
-    def putfile(self, filepath):
-        """Takes a filepath, and puts the file into the store.  Returns the hash.
+    def putfile(self, filepath, key = None):
+        """Takes a filepath and optional key, and puts the file into the
+        store.  Returns the hash.
 
         If there is a matching key in the store already, the copy is not performed.
 
-        
+        If a key is provided, the hashing step is skipped.
+
         """
 
-        key = self.hashfile(filepath)
+        if (key is None):
+            key = self.hashfile(filepath)
         
         objpath = os.path.join(self.storepath, key[:2], key)
         shutil.copyfile(filepath, objpath)
@@ -235,7 +237,7 @@ class CAS:
         """Yields all keys from the store"""
         for i in range(0, 256):
             subdir = format(i, '02x')
-            for item in dircache.listdir(os.path.join(self.storepath, subdir)):
+            for item in os.listdir(os.path.join(self.storepath, subdir)):
                 yield item
 
     def findinvalidkeys(self):
